@@ -26,4 +26,7 @@ dependencies:
       - toml~=0.10.2
       - optuna~=4.1.0
       - torch
+      - atom3d
+      - lmdb
+      - rdkit-pypi
 name: inps
