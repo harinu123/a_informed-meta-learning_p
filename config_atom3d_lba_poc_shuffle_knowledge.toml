@@ -10,6 +10,8 @@ train_split = "train"
 val_split = "val"
 n_trials = 1
 beta = 1.0
+run_name_prefix = "inp"
+run_name_suffix = "atom3d_lba_poc_shuffled"
 
 train_num_z_samples = 1
 test_num_z_samples = 16

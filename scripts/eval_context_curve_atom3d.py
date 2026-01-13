@@ -68,6 +68,11 @@ def main():
     parser.add_argument("--ckpt", required=True, help="Path to model_best.pt")
     parser.add_argument("--config", default="config.toml", help="Path to config file")
     parser.add_argument(
+        "--data_root",
+        default="data/atom3d_lba_poc",
+        help="Root directory containing tasks.pt and splits.csv",
+    )
+    parser.add_argument(
         "--results_path",
         default=None,
         help="Path to write results.json (defaults near checkpoint)",
@@ -79,12 +84,18 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     config.device = device
 
-    dataset = Atom3DLBAPOC(
-        split="test",
-        num_points=config.num_targets,
-        shuffle_knowledge=getattr(config, "shuffle_knowledge", False),
-        seed=config.seed,
-    )
+    try:
+        dataset = Atom3DLBAPOC(
+            split="test",
+            root=args.data_root,
+            num_points=config.num_targets,
+            shuffle_knowledge=getattr(config, "shuffle_knowledge", False),
+            seed=config.seed,
+        )
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(
+            f\"{exc}. Run scripts/preprocess_atom3d_lba_poc.py to generate tasks.pt.\"
+        ) from exc
     config.knowledge_input_dim = dataset.knowledge_input_dim
 
     model = INP(config).to(device)
