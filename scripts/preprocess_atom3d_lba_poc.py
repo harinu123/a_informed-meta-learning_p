@@ -503,6 +503,30 @@ def main():
                     f"[{split_name}] Label field mismatch: previously '{label_field}', now '{split_label}'"
                 )
 
+    unique_splits = set(row["split"] for row in split_rows)
+    if unique_splits == {"all"}:
+        task_ids = sorted(list(all_tasks.keys()))
+        rng = np.random.default_rng(args.seed)
+        rng.shuffle(task_ids)
+
+        n = len(task_ids)
+        n_train = int(0.8 * n)
+        n_val = int(0.1 * n)
+
+        train_ids = task_ids[:n_train]
+        val_ids = task_ids[n_train : n_train + n_val]
+        test_ids = task_ids[n_train + n_val :]
+
+        split_rows = (
+            [{"task_id": t, "split": "train"} for t in train_ids]
+            + [{"task_id": t, "split": "val"} for t in val_ids]
+            + [{"task_id": t, "split": "test"} for t in test_ids]
+        )
+
+        print(
+            f"[task-split] all -> train/val/test = {len(train_ids)}/{len(val_ids)}/{len(test_ids)}"
+        )
+
     os.makedirs(args.out_dir, exist_ok=True)
     torch.save(all_tasks, os.path.join(args.out_dir, "tasks.pt"))
     pd.DataFrame(split_rows).to_csv(os.path.join(args.out_dir, "splits.csv"), index=False)
