@@ -9,6 +9,7 @@ from dataset.dataset import (
     SetKnowledgeTrendingSinusoidsDistShift,
     Temperatures,
 )
+from dataset.atom3d_lba_poc import Atom3DLBAPOC
 
 
 def collate_fn(batch, kwargs, collate_knowledge=True):
@@ -88,6 +89,7 @@ def get_dataloader(dataset, config):
     if config.dataset in [
         "set-trending-sinusoids",
         "set-trending-sinusoids-dist-shift",
+        "atom3d-lba-poc",
     ]:
         collate_knowledge = True
     else:
@@ -132,6 +134,27 @@ def setup_dataloaders(config):
         )
         val_dataset = Temperatures(split="val", knowledge_type=config.knowledge_type)
         test_dataset = Temperatures(split="test", knowledge_type=config.knowledge_type)
+
+    elif config.dataset == "atom3d-lba-poc":
+        shuffle_knowledge = getattr(config, "shuffle_knowledge", False)
+        train_dataset = Atom3DLBAPOC(
+            split="train",
+            num_points=config.num_targets,
+            shuffle_knowledge=shuffle_knowledge,
+            seed=config.seed,
+        )
+        val_dataset = Atom3DLBAPOC(
+            split="val",
+            num_points=config.num_targets,
+            shuffle_knowledge=shuffle_knowledge,
+            seed=config.seed,
+        )
+        test_dataset = Atom3DLBAPOC(
+            split="test",
+            num_points=config.num_targets,
+            shuffle_knowledge=shuffle_knowledge,
+            seed=config.seed,
+        )
 
     else:
         raise ValueError(f"Unknown dataset {config.dataset}")
