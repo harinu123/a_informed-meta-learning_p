@@ -28,9 +28,13 @@ class Atom3DLBAPOC(Dataset):
         tasks_path = os.path.join(root, "tasks.pt")
         splits_path = os.path.join(root, "splits.csv")
         if not os.path.exists(tasks_path):
-            raise FileNotFoundError(f"Missing tasks file at {tasks_path}")
+            raise FileNotFoundError(
+                f"Missing tasks file at {tasks_path}. Run scripts/preprocess_atom3d_lba_poc.py"
+            )
         if not os.path.exists(splits_path):
-            raise FileNotFoundError(f"Missing splits file at {splits_path}")
+            raise FileNotFoundError(
+                f"Missing splits file at {splits_path}. Run scripts/preprocess_atom3d_lba_poc.py"
+            )
 
         self.tasks: Dict[str, Dict[str, torch.Tensor]] = torch.load(tasks_path)
         splits_df = pd.read_csv(splits_path)

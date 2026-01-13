@@ -94,7 +94,7 @@ def main():
         )
     except FileNotFoundError as exc:
         raise FileNotFoundError(
-            f\"{exc}. Run scripts/preprocess_atom3d_lba_poc.py to generate tasks.pt.\"
+            f"{exc}. Run scripts/preprocess_atom3d_lba_poc.py to generate tasks.pt."
         ) from exc
     config.knowledge_input_dim = dataset.knowledge_input_dim
 

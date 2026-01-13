@@ -136,21 +136,25 @@ def setup_dataloaders(config):
         test_dataset = Temperatures(split="test", knowledge_type=config.knowledge_type)
 
     elif config.dataset == "atom3d-lba-poc":
+        data_root = getattr(config, "data_root", "data/atom3d_lba_poc")
         shuffle_knowledge = getattr(config, "shuffle_knowledge", False)
         train_dataset = Atom3DLBAPOC(
             split="train",
+            root=data_root,
             num_points=config.num_targets,
             shuffle_knowledge=shuffle_knowledge,
             seed=config.seed,
         )
         val_dataset = Atom3DLBAPOC(
             split="val",
+            root=data_root,
             num_points=config.num_targets,
             shuffle_knowledge=shuffle_knowledge,
             seed=config.seed,
         )
         test_dataset = Atom3DLBAPOC(
             split="test",
+            root=data_root,
             num_points=config.num_targets,
             shuffle_knowledge=shuffle_knowledge,
             seed=config.seed,

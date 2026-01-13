@@ -20,6 +20,7 @@ freeze_llm = true
 tune_llm_layer_norms = false
 
 dataset = "atom3d-lba-poc"
+data_root = "data/atom3d_lba_poc"
 min_num_context = 0
 max_num_context = 16
 num_targets = 32
