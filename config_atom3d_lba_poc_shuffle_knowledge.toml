@@ -1,0 +1,50 @@
+project_name = "INP_ATOM3D_LBA_POC_SHUFFLED"
+seed = 0
+load_it = "best"
+batch_size = 16
+num_epochs = 200
+lr = 0.0003
+decay_lr = 10
+sort_context = false
+train_split = "train"
+val_split = "val"
+n_trials = 1
+beta = 1.0
+
+train_num_z_samples = 1
+test_num_z_samples = 16
+
+freeze_llm = true
+tune_llm_layer_norms = false
+
+dataset = "atom3d-lba-poc"
+min_num_context = 0
+max_num_context = 16
+num_targets = 32
+x_sampler = "uniform"
+noise = 0.0
+shuffle_knowledge = true
+
+input_dim = 300
+output_dim = 1
+
+use_knowledge = true
+text_encoder = "none"
+knowledge_merge = "sum"
+knowledge_dropout = 0.1
+knowledge_extractor_num_hidden = 0
+knowledge_dim = 128
+
+hidden_dim = 128
+xy_encoder_num_hidden = 2
+xy_encoder_hidden_dim = 128
+xy_self_attention = "none"
+xy_self_attention_num_layers = 1
+latent_encoder_num_hidden = 1
+decoder_hidden_dim = 128
+decoder_num_hidden = 3
+decoder_activation = "gelu"
+x_transf_dim = 128
+x_encoder_num_hidden = 1
+data_agg_func = "mean"
+path = "latent"
