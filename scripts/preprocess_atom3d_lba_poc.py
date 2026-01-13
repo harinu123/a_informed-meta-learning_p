@@ -304,9 +304,16 @@ def load_lba_dataset(data_dir: str):
     if not splits:
         if os.path.exists(os.path.join(data_dir, "lba")):
             return load_lba_dataset(os.path.join(data_dir, "lba"))
-        if os.path.exists(os.path.join(data_dir, "data.mdb")):
+        lmdb_path = os.path.join(data_dir, "data.mdb")
+        if os.path.exists(lmdb_path):
             print(
                 f"No split directories found in {data_dir}. Loading single LMDB as 'all' split."
+            )
+            splits["all"] = LMDBDataset(data_dir)
+            return splits
+        if any(name.endswith(".mdb") for name in os.listdir(data_dir)):
+            print(
+                f"Detected LMDB files in {data_dir}. Loading as 'all' split."
             )
             splits["all"] = LMDBDataset(data_dir)
             return splits
