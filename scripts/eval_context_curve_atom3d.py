@@ -1,10 +1,14 @@
 import argparse
 import json
 import os
+import sys
 from typing import Dict, List
 
 import numpy as np
 import torch
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import Config
 from dataset.atom3d_lba_poc import Atom3DLBAPOC

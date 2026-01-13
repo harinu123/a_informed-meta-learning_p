@@ -302,7 +302,24 @@ def load_lba_dataset(data_dir: str):
         if os.path.exists(split_path):
             splits[split] = LMDBDataset(split_path)
     if not splits:
-        raise FileNotFoundError(f"No splits found in {data_dir}")
+        if os.path.exists(os.path.join(data_dir, "lba")):
+            return load_lba_dataset(os.path.join(data_dir, "lba"))
+        if os.path.exists(os.path.join(data_dir, "data.mdb")):
+            print(
+                f"No split directories found in {data_dir}. Loading single LMDB as 'all' split."
+            )
+            splits["all"] = LMDBDataset(data_dir)
+            return splits
+        raw_dir = os.path.join(data_dir, "raw", "pdbbind_2019-refined-set", "data")
+        if os.path.exists(os.path.join(raw_dir, "data.mdb")):
+            print(
+                "Found raw PDBBind LMDB. Loading as 'all' split."
+            )
+            splits["all"] = LMDBDataset(raw_dir)
+            return splits
+        raise FileNotFoundError(
+            f"No splits found in {data_dir}. Expected train/val/test LMDB dirs or data.mdb."
+        )
     return splits
 
 
