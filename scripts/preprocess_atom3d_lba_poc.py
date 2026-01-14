@@ -2,6 +2,7 @@ import argparse
 import hashlib
 import json
 import os
+import tarfile
 from collections import Counter, defaultdict
 from typing import Dict, Iterable, List, Optional, Tuple
 
@@ -291,10 +292,23 @@ def load_lba_dataset(data_dir: str):
 
     if not os.path.exists(data_dir):
         base_dir = os.path.dirname(data_dir)
-        os.makedirs(base_dir, exist_ok=True)
-        download_dataset("lba", base_dir)
+        tar_path = os.path.join(base_dir, "lba.tar.gz")
+        if os.path.exists(tar_path):
+            print(f"Extracting {tar_path} to {base_dir}")
+            with tarfile.open(tar_path, "r:gz") as tar:
+                tar.extractall(path=base_dir)
         if os.path.exists(os.path.join(base_dir, "lba")):
             data_dir = os.path.join(base_dir, "lba")
+        else:
+            os.makedirs(base_dir, exist_ok=True)
+            download_dataset("lba", base_dir)
+            if os.path.exists(os.path.join(base_dir, "lba")):
+                data_dir = os.path.join(base_dir, "lba")
+
+    if not os.path.exists(data_dir):
+        raise FileNotFoundError(
+            f"No dataset directory found at {data_dir}. Provide --data_dir to an LMDB or extract lba.tar.gz."
+        )
 
     splits = {}
     for split in ["train", "val", "test"]:
