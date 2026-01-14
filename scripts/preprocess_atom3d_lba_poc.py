@@ -282,6 +282,13 @@ def get_task_id(example: Dict, atoms_df: pd.DataFrame) -> str:
     return hashlib.sha1(sequence.encode()).hexdigest()
 
 
+def _first_existing_dir(paths: List[str]) -> Optional[str]:
+    for path in paths:
+        if os.path.isdir(path):
+            return path
+    return None
+
+
 def load_lba_dataset(data_dir: str):
     try:
         from atom3d.datasets import LMDBDataset, download_dataset
@@ -290,25 +297,41 @@ def load_lba_dataset(data_dir: str):
             "atom3d is required. Please install dependencies via environment.yaml"
         ) from exc
 
-    if not os.path.exists(data_dir):
-        base_dir = os.path.dirname(data_dir)
+    base_dir = os.path.dirname(data_dir)
+    candidate_dirs = [
+        data_dir,
+        os.path.join(data_dir, "lba"),
+        os.path.join(data_dir, "raw", "pdbbind_2019-refined-set", "data"),
+        os.path.join(base_dir, "lba"),
+        os.path.join(base_dir, "raw", "pdbbind_2019-refined-set", "data"),
+        os.path.join(os.getcwd(), "raw", "pdbbind_2019-refined-set", "data"),
+    ]
+    resolved_dir = _first_existing_dir(candidate_dirs)
+
+    if resolved_dir is None:
         tar_path = os.path.join(base_dir, "lba.tar.gz")
         if os.path.exists(tar_path):
             print(f"Extracting {tar_path} to {base_dir}")
             with tarfile.open(tar_path, "r:gz") as tar:
                 tar.extractall(path=base_dir)
-        if os.path.exists(os.path.join(base_dir, "lba")):
-            data_dir = os.path.join(base_dir, "lba")
-        else:
-            os.makedirs(base_dir, exist_ok=True)
-            download_dataset("lba", base_dir)
-            if os.path.exists(os.path.join(base_dir, "lba")):
-                data_dir = os.path.join(base_dir, "lba")
+            resolved_dir = _first_existing_dir(candidate_dirs)
 
-    if not os.path.exists(data_dir):
+    if resolved_dir is None:
+        os.makedirs(base_dir, exist_ok=True)
+        download_dataset("lba", base_dir)
+        tar_path = os.path.join(base_dir, "lba.tar.gz")
+        if os.path.exists(tar_path):
+            print(f"Extracting {tar_path} to {base_dir}")
+            with tarfile.open(tar_path, "r:gz") as tar:
+                tar.extractall(path=base_dir)
+        resolved_dir = _first_existing_dir(candidate_dirs)
+
+    if resolved_dir is None:
         raise FileNotFoundError(
-            f"No dataset directory found at {data_dir}. Provide --data_dir to an LMDB or extract lba.tar.gz."
+            f"No dataset directory found near {data_dir}. Provide --data_dir to an LMDB or extract lba.tar.gz."
         )
+
+    data_dir = resolved_dir
 
     splits = {}
     for split in ["train", "val", "test"]:
