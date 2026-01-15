@@ -243,6 +243,28 @@ def compute_pocket_ligand_distogram(
     return hist.flatten()
 
 
+def compute_pocket_self_distogram(pocket_atoms: pd.DataFrame) -> np.ndarray:
+    coord_cols = get_coord_columns(pocket_atoms)
+    coords = pocket_atoms[coord_cols].to_numpy(dtype=np.float32)
+    types = pocket_atoms["element"].apply(element_to_type).to_numpy(dtype=np.int64)
+    n = coords.shape[0]
+    hist = np.zeros((5, 5, 12), dtype=np.float32)
+    if n < 2:
+        return hist.flatten()
+    for i in range(n):
+        for j in range(i + 1, n):
+            dist = np.linalg.norm(coords[i] - coords[j])
+            bin_idx = int(bin_distances(np.array([dist]))[0])
+            ti, tj = types[i], types[j]
+            hist[ti, tj, bin_idx] += 1
+            hist[tj, ti, bin_idx] += 1
+    denom = hist.sum() + 1e-8
+    hist = hist / denom
+    if hist.sum() > 0:
+        assert np.isclose(hist.sum(), 1.0, atol=1e-3)
+    return hist.flatten()
+
+
 def select_label(example: Dict) -> Tuple[float, str]:
     numeric_fields = {}
 
@@ -490,6 +512,7 @@ def prepare_tasks_for_split(
     label_field = None
     ligand_counts = Counter()
     pocket_counts = Counter()
+    debug_prints = 0
 
     for example in dataset:
         ligand_atoms, pocket_atoms, protein_atoms, atoms_df = extract_parts(example)
@@ -503,12 +526,17 @@ def prepare_tasks_for_split(
                 continue
 
         x_vec = compute_ligand_distogram(ligand_atoms)
-        k_vec = compute_pocket_ligand_distogram(pocket_atoms, ligand_atoms)
+        k_vec = compute_pocket_self_distogram(pocket_atoms)
 
         if not np.isfinite(x_vec).all() or not np.isfinite(k_vec).all():
             continue
         if x_vec.sum() <= 0 or k_vec.sum() <= 0:
             continue
+        if debug_prints < 3:
+            print(
+                f"[{split_name}] k stats sum={k_vec.sum():.4f} max={k_vec.max():.4f}"
+            )
+            debug_prints += 1
 
         y_val, chosen_label = select_label(example)
         if label_field is None:
@@ -651,6 +679,7 @@ def main():
         "total_examples": total_examples,
         "num_tasks": len(all_tasks),
         "label_field": label_field,
+        "knowledge_type": "pocket_self_distogram",
         "task_size_histogram": size_hist,
         "min_task_size": min(task_sizes) if task_sizes else 0,
         "median_task_size": float(np.median(task_sizes)) if task_sizes else 0,
