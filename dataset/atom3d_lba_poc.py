@@ -1,6 +1,5 @@
 import os
-import random
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -69,21 +68,13 @@ class Atom3DLBAPOC(Dataset):
         task = self.tasks[task_id]
         x_t = task["x"]
         y_t = task["y"]
-        k_t = task["k"]
 
         sample_idx = self._sample_indices(x_t.shape[0])
         knowledge_task_id = task_id
         if self.shuffle_knowledge and self._shuffle_map is not None:
             knowledge_task_id = self._shuffle_map[task_id]
         knowledge_task = self.tasks[knowledge_task_id]
-        if self.template_mode == "within":
-            if knowledge_task_id == task_id:
-                template_idx = self._rng.choice(sample_idx, 1)[0]
-            else:
-                template_idx = self._rng.integers(0, knowledge_task["k"].shape[0])
-        else:
-            template_idx = self._rng.integers(0, knowledge_task["k"].shape[0])
-        knowledge = knowledge_task["k"][template_idx]
+        knowledge = knowledge_task["k_task"]
 
         x = x_t[sample_idx]
         y = y_t[sample_idx]

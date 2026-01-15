@@ -576,8 +576,11 @@ def prepare_tasks_for_split(
         y = torch.tensor(np.array([e["y"] for e in items]), dtype=torch.float32).unsqueeze(
             -1
         )
-        k = torch.tensor(np.stack([e["k"] for e in items]), dtype=torch.float32)
-        tensor_tasks[str(task_id)] = {"x": x, "y": y, "k": k}
+        k_stack = np.stack([e["k"] for e in items]).astype(np.float32)
+        k_task = k_stack.mean(axis=0)
+        k_task = k_task / (k_task.sum() + 1e-8)
+        k_task = torch.tensor(k_task, dtype=torch.float32)
+        tensor_tasks[str(task_id)] = {"x": x, "y": y, "k_task": k_task}
         task_sizes[str(task_id)] = len(items)
 
     return tensor_tasks, task_sizes, label_field, ligand_counts, pocket_counts

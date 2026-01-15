@@ -216,6 +216,7 @@ class LatentEncoder(nn.Module):
 
         self.knowledge_dim = config.knowledge_dim
         self.knowledge_dropout = config.knowledge_dropout
+        self.k_gate = nn.Parameter(torch.tensor(0.0))
 
         if config.knowledge_merge == "sum":
             input_dim = config.hidden_dim
@@ -266,6 +267,8 @@ class LatentEncoder(nn.Module):
                     > self.knowledge_dropout
                 ).float()
                 k = k * mask
+
+        k = torch.tanh(self.k_gate) * k
 
         if self.config.knowledge_merge == "sum":
             encoder_input = F.relu(R + k)
