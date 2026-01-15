@@ -256,12 +256,16 @@ class LatentEncoder(nn.Module):
         """
         Infer the latent distribution given the global representation
         """
-        drop_knowledge = torch.rand(1) < self.knowledge_dropout
-        if drop_knowledge or knowledge is None:
+        if knowledge is None:
             k = torch.zeros((R.shape[0], 1, self.knowledge_dim)).to(R.device)
-
         else:
             k = self.knowledge_encoder(knowledge)
+            if self.training and self.knowledge_dropout > 0:
+                mask = (
+                    torch.rand((k.shape[0], 1, 1), device=k.device)
+                    > self.knowledge_dropout
+                ).float()
+                k = k * mask
 
         if self.config.knowledge_merge == "sum":
             encoder_input = F.relu(R + k)
@@ -270,10 +274,16 @@ class LatentEncoder(nn.Module):
             encoder_input = torch.cat([R, k], dim=-1)
 
         elif self.config.knowledge_merge == "mlp":
-            if knowledge is not None and not drop_knowledge:
-                encoder_input = self.knowledge_merger(torch.cat([R, k], dim=-1))
-            else:
-                encoder_input = F.relu(R)
+            encoder_input = self.knowledge_merger(torch.cat([R, k], dim=-1))
+
+        if not hasattr(self, "_debug_printed"):
+            r_norm = torch.norm(R, dim=-1).mean().item()
+            k_norm = torch.norm(k, dim=-1).mean().item()
+            enc_norm = torch.norm(encoder_input, dim=-1).mean().item()
+            print(
+                f"[knowledge-debug] mean||R||={r_norm:.4f} mean||k||={k_norm:.4f} mean||enc||={enc_norm:.4f}"
+            )
+            self._debug_printed = True
 
         q_z_stats = self.encoder(encoder_input)
 
