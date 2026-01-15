@@ -94,9 +94,29 @@ DIST_EDGES = np.linspace(2.0, 8.0, 13)
 
 
 def get_atoms_df(example: Dict) -> pd.DataFrame:
+    """
+    Supports two formats:
+    (1) ATOM3D LBA style: example["atoms"] / example["atoms_df"]
+    (2) ATOM3D-packaged PDBBind style: atoms_protein / atoms_pocket / atoms_ligand
+        -> we concatenate just for legacy codepaths; primary extraction uses the specific keys.
+    """
     for key in ["atoms", "atoms_df"]:
         if key in example:
             return example[key]
+
+    if (
+        "atoms_protein" in example
+        or "atoms_pocket" in example
+        or "atoms_ligand" in example
+    ):
+        dfs = []
+        for key in ["atoms_protein", "atoms_pocket", "atoms_ligand"]:
+            if key in example and example[key] is not None:
+                dfs.append(example[key])
+        if len(dfs) == 0:
+            raise KeyError("Example has no atom dataframes")
+        return pd.concat(dfs, axis=0, ignore_index=True)
+
     raise KeyError("Example does not contain atoms dataframe")
 
 
@@ -156,6 +176,31 @@ def select_pocket_atoms(
     return protein_atoms.iloc[np.where(mask)[0]]
 
 
+def extract_parts(
+    example: Dict,
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, Optional[pd.DataFrame]]:
+    """
+    Returns (ligand_atoms, pocket_atoms, protein_atoms, atoms_df_optional)
+    If the example already provides atoms_ligand/atoms_pocket/atoms_protein, use them.
+    Otherwise fall back to selecting from a combined atoms_df.
+    """
+    if (
+        "atoms_ligand" in example
+        and "atoms_pocket" in example
+        and "atoms_protein" in example
+    ):
+        ligand_atoms = example["atoms_ligand"]
+        pocket_atoms = example["atoms_pocket"]
+        protein_atoms = example["atoms_protein"]
+        return ligand_atoms, pocket_atoms, protein_atoms, None
+
+    atoms_df = get_atoms_df(example)
+    ligand_atoms = select_ligand_atoms(atoms_df)
+    protein_atoms = select_protein_atoms(atoms_df)
+    pocket_atoms = select_pocket_atoms(protein_atoms, ligand_atoms, cutoff=6.0)
+    return ligand_atoms, pocket_atoms, protein_atoms, atoms_df
+
+
 def compute_ligand_distogram(ligand_atoms: pd.DataFrame) -> np.ndarray:
     coord_cols = get_coord_columns(ligand_atoms)
     coords = ligand_atoms[coord_cols].to_numpy(dtype=np.float32)
@@ -199,7 +244,27 @@ def compute_pocket_ligand_distogram(
 
 
 def select_label(example: Dict) -> Tuple[float, str]:
+    numeric_fields = {}
+
+    if "scores" in example and example["scores"] is not None:
+        scores = example["scores"]
+        if isinstance(scores, dict):
+            for key, value in scores.items():
+                if isinstance(value, (int, float, np.number)):
+                    numeric_fields[f"scores.{key}"] = float(value)
+                elif isinstance(value, np.ndarray) and value.size == 1:
+                    numeric_fields[f"scores.{key}"] = float(value.reshape(-1)[0])
+        elif isinstance(scores, (int, float, np.number)):
+            numeric_fields["scores"] = float(scores)
+        elif isinstance(scores, np.ndarray) and scores.size == 1:
+            numeric_fields["scores"] = float(scores.reshape(-1)[0])
+
     preferred = [
+        "pk",
+        "pK",
+        "pKd",
+        "pKi",
+        "pIC50",
         "label",
         "affinity",
         "binding_affinity",
@@ -209,10 +274,7 @@ def select_label(example: Dict) -> Tuple[float, str]:
         "ic50",
         "ki",
         "kd",
-        "k_i",
-        "k_d",
     ]
-    numeric_fields = {}
     for key, value in example.items():
         if key in {"atoms", "atoms_df"}:
             continue
@@ -230,7 +292,9 @@ def select_label(example: Dict) -> Tuple[float, str]:
 
     for pref in preferred:
         for key in numeric_fields:
-            if key.lower() == pref:
+            if key.lower() == pref.lower() or key.lower().endswith(
+                f".{pref.lower()}"
+            ):
                 if len(numeric_fields) > 1:
                     print(
                         f"Multiple numeric labels found. Selected '{key}' from {list(numeric_fields.keys())}"
@@ -244,7 +308,11 @@ def select_label(example: Dict) -> Tuple[float, str]:
     return numeric_fields[selected_key], selected_key
 
 
-def get_task_id(example: Dict, atoms_df: pd.DataFrame) -> str:
+def get_task_id(example: Dict, atoms_df: Optional[pd.DataFrame] = None) -> str:
+    if "seq" in example and example["seq"] is not None:
+        sequence = str(example["seq"])
+        return hashlib.sha1(sequence.encode()).hexdigest()
+
     identity_keys = [
         "uniprot_id",
         "uniprot",
@@ -266,6 +334,9 @@ def get_task_id(example: Dict, atoms_df: pd.DataFrame) -> str:
             if key == "pdb" and "chain" in example and example["chain"] is not None:
                 value = f"{value}_{example['chain']}"
             return value
+
+    if atoms_df is None:
+        return hashlib.sha1("UNKNOWN".encode()).hexdigest()
 
     protein_atoms = select_protein_atoms(atoms_df)
     if protein_atoms.empty:
@@ -421,16 +492,15 @@ def prepare_tasks_for_split(
     pocket_counts = Counter()
 
     for example in dataset:
-        atoms_df = get_atoms_df(example)
-        ligand_atoms = select_ligand_atoms(atoms_df)
-        if ligand_atoms.empty:
+        ligand_atoms, pocket_atoms, protein_atoms, atoms_df = extract_parts(example)
+
+        if ligand_atoms is None or len(ligand_atoms) == 0:
             continue
-        protein_atoms = select_protein_atoms(atoms_df)
-        if protein_atoms.empty:
-            continue
-        pocket_atoms = select_pocket_atoms(protein_atoms, ligand_atoms)
-        if pocket_atoms.empty:
-            continue
+        if pocket_atoms is None or len(pocket_atoms) == 0:
+            if protein_atoms is not None and len(protein_atoms) > 0:
+                pocket_atoms = select_pocket_atoms(protein_atoms, ligand_atoms)
+            if pocket_atoms is None or len(pocket_atoms) == 0:
+                continue
 
         x_vec = compute_ligand_distogram(ligand_atoms)
         k_vec = compute_pocket_ligand_distogram(pocket_atoms, ligand_atoms)
